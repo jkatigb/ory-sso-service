@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const morgan = require('morgan');
 const { Sequelize } = require('sequelize');
+const { initDb } = require('./scripts/init-db');
 
 require('dotenv').config();
 
@@ -31,6 +32,12 @@ app.use(session({
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'html');
 app.engine('html', require('handlebars').__express);
+
+// Helper function for handlebars to compare values
+const hbs = require('handlebars');
+hbs.registerHelper('eq', function (a, b) {
+  return a === b;
+});
 
 // Routes
 app.use('/api/tenants', require('./routes/api/tenants'));
@@ -63,6 +70,9 @@ async function init() {
     // Sync database models
     await sequelize.sync();
     console.log('Database synchronized');
+    
+    // Initialize the database with default data if needed
+    await initDb();
 
     // Start the server
     app.listen(PORT, () => {
