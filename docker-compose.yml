@@ -1,0 +1,76 @@
+version: '3.7'
+
+services:
+  # PostgreSQL database for storing Ory Hydra data
+  postgres:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hydra
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sso-network
+
+  # Ory Hydra - OpenID Connect Provider
+  hydra:
+    image: oryd/hydra:v2.1.2
+    depends_on:
+      - postgres
+    ports:
+      - "4444:4444" # Public API
+      - "4445:4445" # Admin API
+    command: serve -c /etc/config/hydra/config.yaml all
+    volumes:
+      - ./config/hydra:/etc/config/hydra
+    environment:
+      - DSN=postgres://postgres:postgres@postgres:5432/hydra?sslmode=disable
+    networks:
+      - sso-network
+    restart: on-failure
+
+  # Login & Consent App
+  login-consent-app:
+    build:
+      context: ./services/login-consent-app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - HYDRA_ADMIN_URL=http://hydra:4445
+      - PORT=3000
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/sso_service
+    depends_on:
+      - hydra
+      - postgres
+    networks:
+      - sso-network
+
+  # Admin Portal
+  admin-portal:
+    build:
+      context: ./services/admin-portal
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - HYDRA_ADMIN_URL=http://hydra:4445
+      - PORT=3001
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/sso_service
+    depends_on:
+      - hydra
+      - postgres
+    networks:
+      - sso-network
+
+networks:
+  sso-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
