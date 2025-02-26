@@ -1,171 +1,184 @@
-# SSO-as-a-Service using Ory Hydra
+/*
+File: README.md
+Path: README.md
+Purpose: Documentation for the SSO service project
+Last change: Initial creation of project documentation
+*/
 
-This repository contains a multi-tenant SSO (Single Sign-On) service implementation using Ory Hydra, an OAuth 2.0 and OpenID Connect provider. The architecture allows you to offer SSO capabilities to multiple organizations (tenants) while maintaining isolation between them.
+# Ory SSO: Multi-Tenant Single Sign-On Platform
 
-## Architecture
+A flexible, scalable Single Sign-On (SSO) solution built on [Ory Hydra](https://github.com/ory/hydra) with multi-tenancy support for enterprise customer management.
 
-The system consists of these main components:
+## Overview
 
-1. **Ory Hydra**: Core OAuth2/OIDC server that issues tokens
-2. **Login & Consent App**: Handles user authentication and obtains consent
-3. **Admin Portal**: Multi-tenant dashboard for managing clients, users, and tenant settings
-4. **PostgreSQL Database**: Stores configuration, users, and OAuth2 clients
+This project provides a complete identity management solution for businesses that need to support multiple customers (tenants) with isolated authentication while maintaining centralized control.
 
-## Features
+### Key Features
 
-- **Multi-tenancy**: Support for multiple organizations with isolated user directories
-- **White-labeled login**: Customizable branding for each tenant
-- **Self-service management**: Tenant admins can manage their own applications
-- **Standards-based**: Built on OAuth2 and OpenID Connect protocols
-- **Scalable**: Designed to handle multiple tenants and applications
+- **Multi-Tenant Architecture**: Isolated authentication domains for each customer
+- **Customized Branding**: Tenant-specific logos, colors, and UI elements
+- **OAuth2/OIDC Compliance**: Industry-standard authentication protocols
+- **Administrative Portal**: Centralized management of tenants, users, and configurations
+- **Tenant Admin Access**: Delegated administration for tenant-specific user management
+- **Containerized Deployment**: Docker-based setup for easy deployment and scaling
+- **Kubernetes Support**: Ready for enterprise deployment on Kubernetes
 
-## Getting Started
+## Components
+
+| Component | Port | Purpose | URL |
+|-----------|------|---------|-----|
+| Admin Portal Backend | 3001 | Administrative API for managing tenants and users | http://localhost:3001 |
+| Admin Portal Frontend | 3011 | UI for administrative functions | http://localhost:3011 |
+| Login/Consent App Backend | 3000 | Handles login, consent, and user management | http://localhost:3000 |
+| Login/Consent App Frontend | 3010 | UI for login, registration, and user profile | http://localhost:3010 |
+| Hydra OAuth2 Server (Public) | 4444 | OAuth2/OIDC public endpoints | http://localhost:4444 |
+| Hydra OAuth2 Server (Admin) | 4445 | OAuth2/OIDC administrative endpoints | http://localhost:4445 |
+| PostgreSQL Database | 5433 | Storage for user, tenant, and OAuth2 data | - |
+
+## Quick Start
 
 ### Prerequisites
 
 - Docker and Docker Compose
-- Node.js (for local development)
+- Node.js 18+ (for development)
+- Git
 
-### Running the Service
+### Installation
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yourusername/ory-sso.git
+   cd ory-sso
+   ```
+
+2. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Initialize the database and create default admin user:
+   ```bash
+   docker-compose exec admin-portal node src/scripts/reset-password.js
+   ```
+
+4. Access the Admin Portal at [http://localhost:3011](http://localhost:3011)
+   - Email: `admin@example.com`
+   - Password: `Password123!`
+
+### Onboarding a Tenant
+
+To onboard a new business customer, use the provided script:
 
 ```bash
-# Clone the repository
-git clone https://github.com/jkatigb/ory-sso-service.git
-cd ory-sso-service
-
-# Start the services
-docker-compose up
-
-# To run in background
-docker-compose up -d
+docker-compose exec admin-portal node src/scripts/create-tenant.js \
+  --name "Acme Inc." \
+  --domain "acme.com" \
+  --adminEmail "admin@acme.com" \
+  --adminName "John Doe" \
+  --adminPassword "SecurePassword123!" \
+  --primaryColor "#1A73E8" \
+  --logoUrl "https://acme.com/logo.png"
 ```
 
-### Initial Credentials
+For bulk onboarding, use:
 
-The system is initialized with default accounts for testing:
+```bash
+docker-compose exec admin-portal node src/scripts/bulk-import-tenants.js --file /path/to/tenants.json
+```
 
-1. **Super Admin**:
-   - Email: admin@example.com
-   - Password: changeme123
-   - Access: Full system access
+## Documentation
 
-2. **Tenant Admin** (for the default tenant):
-   - Email: tenant-admin@example.com
-   - Password: tenant123
-   - Access: Management of the default tenant only
+Comprehensive documentation is available in the docs directory:
 
-**⚠️ Important**: Change these passwords immediately after your first login!
+- [Business Customer Onboarding Guide](docs/business-customer-onboarding.md)
+- [Integration Guide](docs/integration-guide.md)
+- [API Documentation](docs/api-docs.md)
+- [Kubernetes Deployment](docs/integration-guide.md#kubernetes-deployment)
 
-## Service URLs
+## Architecture
 
-- **Hydra Public API**: http://localhost:4444
-- **Hydra Admin API**: http://localhost:4445
-- **Login & Consent App**: http://localhost:3000
-- **Admin Portal**: http://localhost:3001
+The system consists of the following key components:
 
-## Using the SSO Service
+1. **Admin Portal**: React-based web application for managing tenants, users, and settings
+2. **Login/Consent App**: Customizable authentication UI with tenant-specific branding
+3. **Ory Hydra**: OAuth2 and OIDC compliant identity provider
+4. **PostgreSQL Database**: Persistent storage for all components
 
-### Admin Portal
+![Architecture Diagram](docs/images/architecture-diagram.png)
 
-1. **Login** to the Admin Portal at http://localhost:3001
-2. **Create or Manage Tenants** (Super Admin only)
-3. **Register OAuth2 Clients** for your applications
-4. **Configure Branding** for the login experience
+## Configuration
 
-### Registering an Application
+### Environment Variables
 
-1. In the Admin Portal, go to "OAuth2 Clients"
-2. Click "New Client"
-3. Fill in the details:
-   - Name: Application name
-   - Redirect URIs: Where to send users after login
-   - Grant Types: Authorization code flow recommended
-   - Scopes: Required scopes (e.g., openid, profile, email)
-4. Save the client ID and secret securely
+The system can be configured using environment variables. Create a `.env` file in the project root:
 
-### Integrating with Your Application
+```
+# Database
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=sso_service
+DATABASE_URL=postgres://postgres:postgres@postgres:5432/sso_service
 
-Here's a basic example of how to integrate with the SSO service using the authorization code flow:
+# Admin Portal
+ADMIN_PORT=3001
+ADMIN_FRONTEND_PORT=3011
+JWT_SECRET=your-secret-key
+DEFAULT_ADMIN_EMAIL=admin@example.com
+DEFAULT_ADMIN_PASSWORD=Password123!
 
-```javascript
-// Example using Node.js and Express
-const express = require('express');
-const { auth } = require('express-openid-connect');
+# Login App
+LOGIN_APP_PORT=3000
+LOGIN_APP_FRONTEND_PORT=3010
+HYDRA_ADMIN_URL=http://hydra:4445
 
-const app = express();
-
-const config = {
-  authRequired: false,
-  auth0Logout: true,
-  baseURL: 'http://localhost:3000',
-  clientID: 'YOUR_CLIENT_ID',
-  issuerBaseURL: 'http://localhost:4444',
-  secret: 'YOUR_RANDOM_SECRET'
-};
-
-// Auth router setup with express-openid-connect
-app.use(auth(config));
-
-// Define a route that requires authentication
-app.get('/profile', (req, res) => {
-  res.send(JSON.stringify(req.oidc.user));
-});
-
-app.listen(3000, () => {
-  console.log('App is listening on port 3000');
-});
+# Hydra
+HYDRA_PUBLIC_PORT=4444
+HYDRA_ADMIN_PORT=4445
+URLS_SELF_ISSUER=http://localhost:4444
+URLS_LOGIN=http://localhost:3010/login
+URLS_CONSENT=http://localhost:3010/consent
+URLS_LOGOUT=http://localhost:3010/logout
 ```
 
 ## Development
 
-Each component is contained in the `services` directory:
+### Project Structure
 
-- `services/login-consent-app`: The Login & Consent application
-- `services/admin-portal`: The Admin Portal for managing tenants
+```
+ory-sso/
+├── docker-compose.yml         # Docker setup
+├── services/                  # Service components
+│   ├── admin-portal/          # Admin portal backend and frontend
+│   ├── login-app/             # Login/consent app backend and frontend
+│   └── hydra/                 # Ory Hydra configuration
+├── docs/                      # Documentation
+└── scripts/                   # Utility scripts
+```
 
 ### Local Development
 
-```bash
-# For Login & Consent App
-cd services/login-consent-app
-npm install
-npm run dev
+For local development, you can run individual services:
 
-# For Admin Portal
+```bash
+# Admin Portal Backend
 cd services/admin-portal
 npm install
 npm run dev
+
+# Admin Portal Frontend
+cd services/admin-portal/client
+npm install
+npm start
 ```
 
-## Customization and Extension
+## Contributing
 
-### Adding Custom Identity Providers
-
-You can extend the Login & Consent App to support additional identity providers:
-
-1. Add the authentication strategy to the Login & Consent App
-2. Implement the login flow for the new provider
-3. Update the tenant configuration to support the new provider
-
-### Custom Claims and Scopes
-
-To add custom claims to the tokens:
-
-1. Modify the Login & Consent App routes to include additional claims
-2. Update the token issuance in the consent handler
-
-## Security Considerations
-
-For production use:
-
-1. **Change all secrets** in config files
-2. **Use proper TLS certificates**
-3. **Configure proper domain names** instead of localhost
-4. **Follow OAuth2 security best practices**:
-   - Keep client secrets secure
-   - Use PKCE for public clients
-   - Set proper token lifetimes
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For questions or issues, please open a GitHub issue or contact support@example.com.

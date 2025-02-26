@@ -1,11 +1,8 @@
 const { Sequelize, DataTypes, Model } = require('sequelize');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-
-// Get the Sequelize instance from the main app
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
-  logging: false
-});
+const { v4: uuidv4 } = require('uuid');
+const sequelize = require('../config/database');
 
 /**
  * Tenant model - represents an organization in our multi-tenant SSO service
@@ -15,25 +12,38 @@ class Tenant extends Model {}
 Tenant.init({
   id: {
     type: DataTypes.UUID,
-    defaultValue: Sequelize.UUIDV4,
+    defaultValue: () => uuidv4(),
     primaryKey: true
   },
   name: {
     type: DataTypes.STRING,
     allowNull: false
   },
+  slug: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
   domain: {
     type: DataTypes.STRING,
     allowNull: true,
     unique: true
   },
-  active: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true
+  status: {
+    type: DataTypes.ENUM('active', 'inactive', 'pending'),
+    defaultValue: 'active'
   },
-  config: {
+  settings: {
     type: DataTypes.JSONB,
     defaultValue: {}
+  },
+  branding: {
+    type: DataTypes.JSONB,
+    defaultValue: {
+      logoUrl: null,
+      primaryColor: '#3498db',
+      accentColor: '#2ecc71'
+    }
   }
 }, {
   sequelize,
@@ -222,8 +232,8 @@ TenantAdmin.init({
   timestamps: true
 });
 
-// Set up associations
-Tenant.hasOne(TenantBranding, { foreignKey: 'tenantId', as: 'branding' });
+// Set up associations - Fix naming collision by renaming the association
+Tenant.hasOne(TenantBranding, { foreignKey: 'tenantId', as: 'tenantBranding' });
 TenantBranding.belongsTo(Tenant, { foreignKey: 'tenantId' });
 
 Tenant.hasMany(TenantAdmin, { foreignKey: 'tenantId', as: 'admins' });
@@ -236,7 +246,7 @@ TenantAdmin.belongsTo(Tenant, { foreignKey: 'tenantId' });
  */
 async function getTenantById(id) {
   return await Tenant.findByPk(id, {
-    include: [{ model: TenantBranding, as: 'branding' }]
+    include: [{ model: TenantBranding, as: 'tenantBranding' }]
   });
 }
 
@@ -275,7 +285,7 @@ async function createTenant(tenantData, brandingData = {}) {
  */
 async function listTenants(options = {}) {
   return await Tenant.findAll({
-    include: [{ model: TenantBranding, as: 'branding' }],
+    include: [{ model: TenantBranding, as: 'tenantBranding' }],
     ...options
   });
 }
@@ -330,6 +340,15 @@ async function createTenantAdmin(adminData) {
   return admin;
 }
 
+// Helper functions
+const findTenantByDomain = async (domain) => {
+  return await Tenant.findOne({ where: { domain } });
+};
+
+const findTenantById = async (id) => {
+  return await Tenant.findByPk(id);
+};
+
 module.exports = {
   Tenant,
   TenantBranding,
@@ -338,5 +357,7 @@ module.exports = {
   createTenant,
   listTenants,
   authenticateAdmin,
-  createTenantAdmin
+  createTenantAdmin,
+  findTenantByDomain,
+  findTenantById
 };

@@ -2,8 +2,9 @@
  * Script to initialize the database with a default super-admin user
  */
 
-const { Sequelize } = require('sequelize');
-const { TenantAdmin, Tenant, createTenant, createTenantAdmin } = require('../models/tenant');
+const sequelize = require('../config/database');
+const { User, createUser } = require('../models/user');
+const { createTenantAdmin } = require('../models/tenant');
 
 require('dotenv').config();
 
@@ -12,75 +13,59 @@ const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || 'changeme12
 const DEFAULT_ADMIN_NAME = 'System Administrator';
 
 /**
- * Initialize the database
+ * Initialize the database with required default data
  */
 async function initDb() {
-  console.log('Starting database initialization...');
-
   try {
-    // Create database connection
-    const sequelize = new Sequelize(process.env.DATABASE_URL, {
-      logging: false
+    console.log('Initializing database...');
+    
+    // Check if super admin exists
+    const superAdminExists = await User.findOne({
+      where: { role: 'super-admin' }
     });
-
-    // Test connection
-    await sequelize.authenticate();
-    console.log('Database connection established');
-
-    // Sync database models
-    await sequelize.sync();
-    console.log('Database models synchronized');
-
-    // Check if a super admin already exists
-    const existingAdmin = await TenantAdmin.findOne({
-      where: {
-        role: 'super-admin'
-      }
-    });
-
-    if (existingAdmin) {
-      console.log('A super-admin already exists in the database. Skipping initialization.');
-      return;
+    
+    if (!superAdminExists) {
+      console.log('Creating default super admin user...');
+      
+      await createUser({
+        username: 'admin',
+        email: DEFAULT_ADMIN_EMAIL,
+        password: 'Password123!',
+        role: 'super-admin',
+        profile: {
+          firstName: 'System',
+          lastName: 'Administrator'
+        }
+      });
+      
+      console.log('Default super admin created!');
+    } else {
+      console.log('Super admin already exists, skipping creation.');
     }
-
-    console.log('Creating default super-admin account...');
-
-    // Create a super admin user (not associated with any tenant)
-    const superAdmin = await createTenantAdmin({
-      email: DEFAULT_ADMIN_EMAIL,
-      name: DEFAULT_ADMIN_NAME,
-      password: DEFAULT_ADMIN_PASSWORD,
-      tenantId: null, // No tenant for super-admin
-      role: 'super-admin'
-    });
-
-    console.log(`Super-admin created with email: ${DEFAULT_ADMIN_EMAIL}`);
-    console.log('IMPORTANT: Change the default password immediately after first login!');
-
-    // Create a default tenant for demo purposes
-    const defaultTenant = await createTenant({
-      name: 'Default Organization',
-      domain: 'default.example.com',
-      active: true,
-      config: {}
-    });
-
-    console.log(`Default tenant created: ${defaultTenant.name}`);
-
-    // Create a tenant admin for the default tenant
-    const tenantAdmin = await createTenantAdmin({
-      email: 'tenant-admin@example.com',
-      name: 'Tenant Administrator',
-      password: 'tenant123',
-      tenantId: defaultTenant.id,
-      role: 'admin'
-    });
-
-    console.log('Default tenant admin created with email: tenant-admin@example.com');
-    console.log('Database initialization completed successfully');
+    
+    console.log('Attempting to create tenant admin...');
+    // Create tenant admin for the login system
+    try {
+      console.log('Creating default tenant admin...');
+      const admin = await createTenantAdmin({
+        email: DEFAULT_ADMIN_EMAIL,
+        name: DEFAULT_ADMIN_NAME,
+        password: 'Password123!',
+        role: 'super-admin'
+      });
+      console.log('Default tenant admin created!', admin ? admin.id : 'No ID returned');
+    } catch (error) {
+      // If the admin already exists or there's another error, log it but continue
+      console.log('Error creating tenant admin. Full error:', error);
+      console.log('Error message:', error.message);
+      if (error.name) console.log('Error name:', error.name);
+      if (error.stack) console.log('Error stack:', error.stack);
+    }
+    
+    console.log('Database initialization completed successfully!');
   } catch (error) {
-    console.error('Database initialization failed:', error);
-    process.exit(1);
+    console.error('Error initializing database:', error);
+    throw error;
   }
 }
 
