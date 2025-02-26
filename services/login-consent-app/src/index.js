@@ -34,6 +34,12 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'html');
 app.engine('html', require('handlebars').__express);
 
+// Helper function for handlebars to compare values
+const hbs = require('handlebars');
+hbs.registerHelper('eq', function (a, b) {
+  return a === b;
+});
+
 // Routes
 app.use('/login', require('./routes/login'));
 app.use('/consent', require('./routes/consent'));
