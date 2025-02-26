@@ -61,7 +61,7 @@ oidc:
 
 ttl:
   access_token: 1h
-  refresh_token: 30d
+  refresh_token: 720h  # 30 days in hours
   id_token: 1h
   auth_code: 10m
   login_consent_request: 15m

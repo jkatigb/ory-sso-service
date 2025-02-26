@@ -1,11 +1,11 @@
-version: '3.7'
+version: "3.7"
 
 services:
   # PostgreSQL database for storing Ory Hydra data
   postgres:
     image: postgres:14-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -20,10 +20,11 @@ services:
     image: oryd/hydra:v2.1.2
     depends_on:
       - postgres
+      - hydra-migrate
     ports:
       - "4444:4444" # Public API
       - "4445:4445" # Admin API
-    command: serve -c /etc/config/hydra/config.yaml all
+    command: serve --dev -c /etc/config/hydra/config.yaml all
     volumes:
       - ./config/hydra:/etc/config/hydra
     environment:
@@ -32,7 +33,19 @@ services:
       - sso-network
     restart: on-failure
 
-  # Login & Consent App
+  # Hydra Migration Service
+  hydra-migrate:
+    image: oryd/hydra:v2.1.2
+    depends_on:
+      - postgres
+    environment:
+      - DSN=postgres://postgres:postgres@postgres:5432/hydra?sslmode=disable
+    command: migrate sql -e postgres://postgres:postgres@postgres:5432/hydra?sslmode=disable --yes
+    networks:
+      - sso-network
+    restart: on-failure
+
+  # Login & Consent App Backend
   login-consent-app:
     build:
       context: ./services/login-consent-app
@@ -44,13 +57,37 @@ services:
       - HYDRA_ADMIN_URL=http://hydra:4445
       - PORT=3000
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/sso_service
+      - CORS_ALLOWED_ORIGINS=http://localhost:3010
+      # Azure AD / Entra ID Configuration
+      - AZURE_CLIENT_ID=YOUR_CLIENT_ID
+      - AZURE_CLIENT_SECRET=YOUR_CLIENT_SECRET
+      - AZURE_TENANT_ID=YOUR_TENANT_ID
+      - AZURE_REDIRECT_URI=http://localhost:3000/auth/azure/callback
+      - SESSION_SECRET=your-session-secret
+    volumes:
+      - ./config/entra-id:/app/config/entra-id
     depends_on:
       - hydra
       - postgres
     networks:
       - sso-network
 
-  # Admin Portal
+  # Login & Consent App React Frontend
+  login-consent-app-react:
+    build:
+      context: ./services/login-consent-app-react
+      dockerfile: Dockerfile
+    ports:
+      - "3010:80"
+    depends_on:
+      - login-consent-app
+    environment:
+      - REACT_APP_API_URL=http://localhost:3000
+      - REACT_APP_HYDRA_PUBLIC_URL=http://localhost:4444
+    networks:
+      - sso-network
+
+  # Admin Portal Backend
   admin-portal:
     build:
       context: ./services/admin-portal
@@ -62,9 +99,25 @@ services:
       - HYDRA_ADMIN_URL=http://hydra:4445
       - PORT=3001
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/sso_service
+      - CORS_ALLOWED_ORIGINS=http://localhost:3011
     depends_on:
       - hydra
       - postgres
+    networks:
+      - sso-network
+
+  # Admin Portal React Frontend
+  admin-portal-react:
+    build:
+      context: ./services/admin-portal-react
+      dockerfile: Dockerfile
+    ports:
+      - "3011:80"
+    depends_on:
+      - admin-portal
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001
+      - REACT_APP_HYDRA_ADMIN_URL=http://localhost:4445
     networks:
       - sso-network
 

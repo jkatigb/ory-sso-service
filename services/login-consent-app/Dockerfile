@@ -1,3 +1,8 @@
+# File: Dockerfile
+# Path: services/login-consent-app/Dockerfile
+# Purpose: Configuration for building the login-consent-app Docker container
+# Last change: Initial creation of the Dockerfile for the login-consent-app service
+
 FROM node:18-alpine
 
 # Create app directory
@@ -16,4 +21,4 @@ COPY . .
 EXPOSE 3000
 
 # Start the app
-CMD ["npm", "start"]
+CMD ["npm", "start"] 
