@@ -1,0 +1,74 @@
+serve:
+  cookies:
+    same_site_mode: Lax
+
+  public:
+    cors:
+      enabled: true
+      allowed_origins:
+        - "*"
+      allowed_methods:
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Content-Type
+      exposed_headers:
+        - Content-Type
+      allow_credentials: true
+      debug: true
+
+  admin:
+    cors:
+      enabled: true
+      allowed_origins:
+        - "*"
+      allowed_methods:
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Content-Type
+      exposed_headers:
+        - Content-Type
+      allow_credentials: true
+      debug: true
+
+urls:
+  self:
+    issuer: http://localhost:4444 # Change in production
+  consent: http://localhost:3000/consent
+  login: http://localhost:3000/login
+  logout: http://localhost:3000/logout
+
+secrets:
+  system:
+    - youReallyNeedToChangeThis # This should be changed in production
+
+oidc:
+  subject_identifiers:
+    supported_types:
+      - pairwise
+      - public
+    pairwise:
+      salt: youReallyNeedToChangeThis # This should be changed in production
+
+ttl:
+  access_token: 1h
+  refresh_token: 30d
+  id_token: 1h
+  auth_code: 10m
+  login_consent_request: 15m
+
+strategies:
+  access_token: jwt
+
+log:
+  level: debug
+  format: json
